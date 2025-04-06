@@ -1,0 +1,49 @@
+# ========================================
+# 📦 Unity 프로젝트용 .gitattributes (Git LFS + 텍스트 처리)
+# ========================================
+
+# 🎮 Unity 에셋 - Git LFS로 추적
+*.psd filter=lfs diff=lfs merge=lfs -text
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.tga filter=lfs diff=lfs merge=lfs -text
+*.gif filter=lfs diff=lfs merge=lfs -text
+*.bmp filter=lfs diff=lfs merge=lfs -text
+*.mp3 filter=lfs diff=lfs merge=lfs -text
+*.wav filter=lfs diff=lfs merge=lfs -text
+*.ogg filter=lfs diff=lfs merge=lfs -text
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.fbx filter=lfs diff=lfs merge=lfs -text
+*.obj filter=lfs diff=lfs merge=lfs -text
+*.prefab filter=lfs diff=lfs merge=lfs -text
+*.unity filter=lfs diff=lfs merge=lfs -text
+*.mat filter=lfs diff=lfs merge=lfs -text
+*.anim filter=lfs diff=lfs merge=lfs -text
+*.controller filter=lfs diff=lfs merge=lfs -text
+
+# ✅ Unity 기본 텍스트 파일 - 정상적인 텍스트 처리
+*.cs text
+*.shader text
+*.cginc text
+*.compute text
+*.json text
+*.xml text
+*.yaml text
+*.meta text
+*.txt text
+*.asmdef text
+*.rsp text
+*.uxml text
+*.uss text
+
+# 🚫 이진 파일 (무조건 바이너리 처리)
+*.dll binary
+*.exe binary
+
+# ========================================
+# ✅ 필수 정보
+# - 위 설정이 Git LFS 활성화된 상태에서만 적용됨
+# - .gitattributes는 프로젝트 루트에 위치
+# - .gitignore와 함께 사용
+# ========================================

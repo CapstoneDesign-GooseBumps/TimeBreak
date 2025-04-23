@@ -6,7 +6,8 @@ public class SourceLikeMovement : MonoBehaviour {
     enum MoveType { Ground, Air, Surf }
 
     [Header("Movement Settings")]
-    public float groundMaxSpeed = 6.35f;
+    public float groundMaxSpeed = 6.35f;              // 250 HU/s
+    public float airMaxSpeed = 6.35f;                 // 최대 공중 속도 (Ground과 동일하거나 별도 설정)
     public float gravity = 20.32f;
     public float jumpPower = 7.15f;
     public float accelerate = 10f;
@@ -43,7 +44,7 @@ public class SourceLikeMovement : MonoBehaviour {
         camRight.y = 0;
         inputDir = (camForward.normalized * inputDir.z + camRight.normalized * inputDir.x).normalized;
 
-        // Space or mouse wheel up/down triggers jump
+        // Space or mouse wheel triggers jump
         float scroll = Input.GetAxis("Mouse ScrollWheel");
         bool scrollJump = scroll != 0;
         bool isJumping = Input.GetButtonDown("Jump") || scrollJump;
@@ -66,7 +67,7 @@ public class SourceLikeMovement : MonoBehaviour {
         }
         else
         {
-            AirAccelerate(inputDir, airAccelerate, deltaTime);
+            ApplyAirAccel(inputDir, airAccelerate, deltaTime);
             velocity.y -= gravity * deltaTime;
         }
 
@@ -78,9 +79,7 @@ public class SourceLikeMovement : MonoBehaviour {
         if (controller.isGrounded)
         {
             if (IsSurfSurface(out RaycastHit hit))
-            {
                 moveType = MoveType.Surf;
-            }
             else
             {
                 moveType = MoveType.Ground;
@@ -97,9 +96,7 @@ public class SourceLikeMovement : MonoBehaviour {
     {
         Vector3 origin = transform.position + Vector3.up * 0.1f;
         if (Physics.Raycast(origin, Vector3.down, out hit, 1.2f))
-        {
             return hit.normal.y < surfSlopeThreshold;
-        }
         return false;
     }
 
@@ -110,17 +107,24 @@ public class SourceLikeMovement : MonoBehaviour {
         if (addSpeed <= 0) return;
 
         float accelSpeed = accel * wishSpeed * deltaTime;
-        if (accelSpeed > addSpeed)
-            accelSpeed = addSpeed;
-
+        accelSpeed = Mathf.Min(accelSpeed, addSpeed);
         velocity += accelSpeed * wishDir;
     }
 
-    void AirAccelerate(Vector3 wishDir, float accel, float deltaTime)
+    void ApplyAirAccel(Vector3 wishDir, float accel, float deltaTime)
     {
-        float currentSpeed = Vector3.Dot(velocity, wishDir);
-        float accelSpeed = accel * deltaTime;
-        velocity += accelSpeed * wishDir;
+        Vector3 horizontalVel = new Vector3(velocity.x, 0, velocity.z);
+        float currentSpeed = Vector3.Dot(horizontalVel, wishDir);
+        float wishSpeed = airMaxSpeed;
+        float addSpeed = wishSpeed - currentSpeed;
+        if (addSpeed <= 0 || wishDir == Vector3.zero) return;
+
+        float accelSpeed = accel * wishSpeed * deltaTime;
+        accelSpeed = Mathf.Min(accelSpeed, addSpeed);
+
+        horizontalVel += accelSpeed * wishDir;
+        velocity.x = horizontalVel.x;
+        velocity.z = horizontalVel.z;
     }
 
     void ApplyFriction()
@@ -131,8 +135,10 @@ public class SourceLikeMovement : MonoBehaviour {
 
         float drop = speed * friction * Time.deltaTime;
         float newSpeed = Mathf.Max(speed - drop, 0);
-        velocity.x *= newSpeed / speed;
-        velocity.z *= newSpeed / speed;
+        horizontal *= newSpeed / speed;
+
+        velocity.x = horizontal.x;
+        velocity.z = horizontal.z;
     }
 
     void UpdateDuckState(bool duckHeld)

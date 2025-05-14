@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Events;
 using System.Linq;
 using System.Collections.Generic;
@@ -42,6 +42,8 @@ namespace Fragsurf.Movement
         public UnityEvent<GameObject> OnTriggerStayEvent;
         public UnityEvent<GameObject> OnTriggerExitEvent;
 
+        public TimeSkillManager timeSkill;
+
         private Vector3 _startPosition;
         private SurfController _controller = new SurfController();
         private List<GameObject> _touchingLastFrame = new List<GameObject>();
@@ -80,7 +82,7 @@ namespace Fragsurf.Movement
 
             Collider = gameObject.AddComponent<BoxCollider>();
             Collider.size = ColliderSize;
-            Collider.center = new Vector3(0, ColliderSize.y * 0.5f, 0);
+            Collider.center = new Vector3(0, 0, 0);
             Collider.isTrigger = true;
 
             var rb = GetComponent<Rigidbody>() ?? gameObject.AddComponent<Rigidbody>();
@@ -112,24 +114,27 @@ namespace Fragsurf.Movement
             UpdateRotation();
             UpdateMoveData();
 
-            var dtFrame = (1f / TickRate) * (1f / Time.timeScale);
             var now = Time.realtimeSinceStartup;
             var frameTime = Mathf.Min(now - _elapsedTime, Time.fixedDeltaTime);
             Time.maximumDeltaTime = Time.fixedDeltaTime * (1f / Time.timeScale);
             _elapsedTime = now;
             _accumulator += frameTime;
 
-            while (_accumulator >= dtFrame)
+            while (_accumulator >= Time.fixedDeltaTime)
             {
-                _accumulator -= dtFrame;
+                _accumulator -= Time.fixedDeltaTime;
                 Tick();
             }
-            _alpha = _accumulator / dtFrame;
+            _alpha = _accumulator / Time.fixedDeltaTime;
 
+            // 3) 카메라 보간 – 시간 배수 적용 안 함
             if (Camera)
             {
-                Camera.transform.position = Vector3.Lerp(MoveData.PreviousOrigin, MoveData.Origin, _alpha)
-                    + (MoveData.Ducked ? DuckedViewOffset : ViewOffset);
+                float halfHeight = Collider.size.y * transform.localScale.y * 0.5f;
+                Vector3 interp = Vector3.Lerp(MoveData.PreviousOrigin, MoveData.Origin, _alpha);
+                Camera.transform.position = interp
+                                        + Vector3.up * halfHeight
+                                        + (MoveData.Ducked ? DuckedViewOffset : ViewOffset);
             }
         }
 
@@ -146,10 +151,15 @@ namespace Fragsurf.Movement
 
         private void Tick()
         {
-            _controller.CalculateMovement(this, _moveConfig, Time.fixedDeltaTime);
-            transform.position = MoveData.Origin;
+            // 1) 물리 연산에만 시간 배수 적용
+            float dt = Time.fixedDeltaTime * timeSkill.TimeMultiplier;
+            _controller.CalculateMovement(this, _moveConfig, dt);
 
-            // Trigger touch handling
+            // 2) MoveData.Origin은 바닥(발자리)이므로, 모델 피벗(중앙)을 반 높이만큼 올려준다
+            float halfHeight = Collider.size.y * transform.localScale.y * 0.5f;
+            transform.position = MoveData.Origin + Vector3.up * halfHeight;
+
+            // 3) 트리거 처리 (기존 로직 그대로)
             var prevTouches = new HashSet<GameObject>(_touchingLastFrame);
             var prevOrigin = MoveData.PreviousOrigin;
             var newOrigin = MoveData.Origin;
@@ -157,13 +167,15 @@ namespace Fragsurf.Movement
             var dir = (newOrigin - prevOrigin).normalized;
             var distance = Vector3.Distance(prevOrigin, newOrigin);
 
-            var hits = Physics.BoxCastAll(center,
+            var hits = Physics.BoxCastAll(
+                center,
                 Collider.bounds.extents,
                 dir,
                 Quaternion.identity,
                 distance,
                 SurfPhysics.GroundLayerMask,
-                QueryTriggerInteraction.Collide);
+                QueryTriggerInteraction.Collide
+            );
 
             var currentTouches = hits
                 .Where(h => h.collider.isTrigger)

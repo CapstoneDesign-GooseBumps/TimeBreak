@@ -28,7 +28,8 @@ namespace Fragsurf.Movement
         public KeyCode MoveForward = KeyCode.W;
         public KeyCode MoveBack = KeyCode.S;
         public KeyCode Noclip = KeyCode.N;
-        public KeyCode Restart = KeyCode.R;
+
+        //public KeyCode Restart = KeyCode.T;
         public KeyCode YawLeft = KeyCode.Mouse4;
         public KeyCode YawRight = KeyCode.Mouse3;
         public int YawSpeed = 260;
@@ -140,11 +141,13 @@ namespace Fragsurf.Movement
 
         private void UpdateTestBinds()
         {
+            /*
             if (Input.GetKeyDown(Restart))
             {
                 MoveData.Velocity = Vector3.zero;
                 MoveData.Origin = _startPosition;
             }
+            */
             if (Input.GetKeyDown(Noclip))
                 MoveType = MoveType == MoveType.Noclip ? MoveType.Walk : MoveType.Noclip;
         }

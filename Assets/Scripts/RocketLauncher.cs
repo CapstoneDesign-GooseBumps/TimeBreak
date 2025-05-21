@@ -10,15 +10,15 @@ public class RocketLauncher : MonoBehaviour
     [Header("Ammo Settings")]
     public int magazineCapacity = 4;
     public int reserveAmmo = 20;
-    
-    [SerializeField, Tooltip("현재 장전된 탄 수 (0 ~ magazineCapacity)")]
+
+    [SerializeField]
     private int currentMagazine;
 
-    [SerializeField, Tooltip("예비 탄약 (장탄 제외한 나머지)")]
+    [SerializeField]
     private int currentAmmo;
+
     private bool isReloading = false;
     private bool canFire = true;
-    private Coroutine reloadCoroutine;
 
     [Header("Timing")]
     public float firstReloadTime = 0.92f;
@@ -37,25 +37,28 @@ public class RocketLauncher : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetButtonDown("Fire1") && currentMagazine > 0)
+        if (Input.GetButton("Fire1") && currentMagazine > 0 && canFire)
         {
-            // 🔸 장전 중단
-            if (isReloading && reloadCoroutine != null)
-            {
-                StopCoroutine(reloadCoroutine);
-                isReloading = false;
-                canFire = true;
-            }
+            // 장전 중이면 중단
+            if (isReloading)
+                return;
 
-            if (canFire)
-                StartCoroutine(HandleFire());
+            StartCoroutine(HandleFire());
         }
-        else if (Input.GetKeyDown(KeyCode.R) && currentMagazine < magazineCapacity && currentAmmo > 0)
+        else if (Input.GetKeyDown(KeyCode.R))
         {
-            // 🔸 재장전 중이 아니라면 시작
-            if (!isReloading)
-                reloadCoroutine = StartCoroutine(ReloadMagazine());
+            TryStartReload();
         }
+    }
+
+    void TryStartReload()
+    {
+        // 조건을 철저히 검사
+        if (isReloading) return;
+        if (currentMagazine >= magazineCapacity) return;
+        if (currentAmmo <= 0) return;
+
+        StartCoroutine(ReloadMagazine());
     }
 
     IEnumerator HandleFire()
@@ -65,20 +68,17 @@ public class RocketLauncher : MonoBehaviour
         Instantiate(rocketPrefab, firePoint.position, firePoint.rotation);
         currentMagazine--;
 
-        // 🔸 발사음
         if (audioSource && fireClip)
             audioSource.PlayOneShot(fireClip);
 
         float delay = (currentMagazine == magazineCapacity - 1) ? firstReloadTime : regularReloadTime;
         yield return new WaitForSeconds(delay);
 
+        canFire = true;
+
         if (currentMagazine <= 0 && currentAmmo > 0)
         {
-            reloadCoroutine = StartCoroutine(ReloadMagazine());
-        }
-        else
-        {
-            canFire = true;
+            TryStartReload();
         }
     }
 
@@ -93,19 +93,16 @@ public class RocketLauncher : MonoBehaviour
         {
             yield return new WaitForSeconds(delay);
 
-            currentMagazine++;
+            currentMagazine = Mathf.Min(currentMagazine + 1, magazineCapacity);
             currentAmmo--;
 
-            // 장전음
             if (audioSource && reloadClip)
                 audioSource.PlayOneShot(reloadClip);
 
-            // 이후 장탄부터는 일반 시간
             delay = regularReloadTime;
         }
 
         isReloading = false;
         canFire = true;
-        reloadCoroutine = null;
     }
 }

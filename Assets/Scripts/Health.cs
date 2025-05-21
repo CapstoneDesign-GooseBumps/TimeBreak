@@ -6,7 +6,7 @@ public class Health : MonoBehaviour
 {
     [Header("Health Settings")]
     public float maxHealth = 100f;            // 최대 체력
-    float currentHealth;
+    [SerializeField] private float currentHealth;
 
     [Header("Events")]
     public UnityEvent<float> OnTakeDamage;    // 파라미터: 남은 체력

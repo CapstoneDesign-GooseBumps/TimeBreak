@@ -72,28 +72,30 @@ public class Rocket : MonoBehaviour
         Collider[] hits = Physics.OverlapSphere(transform.position, explosionRadius);
         foreach (var c in hits)
         {
-            if (c == directHitCollider) continue;
-
+            if (c == null) continue;
             var hp = c.GetComponent<Health>();
-            if (hp != null)
-            {
-                float distShooter = Vector3.Distance(shooterPosition, transform.position);
-                float directDmg = ComputeDirectDamage(distShooter);
+            if (hp == null) continue;
 
-                float distExpl = Vector3.Distance(transform.position, c.transform.position);
-                float splashDmg = ComputeSplashDamage(directDmg, distExpl);
+            float distShooter = Vector3.Distance(shooterPosition, transform.position);
+            float directDmg = ComputeDirectDamage(distShooter);
+            float distExpl = Vector3.Distance(transform.position, c.transform.position);
+            float splashDmg = ComputeSplashDamage(directDmg, distExpl);
 
-                // 🔹 넉백 정보를 미리 전달
-                var dummy = c.GetComponent<Target>();
-                if (dummy != null)
-                    dummy.RecordExplosion(transform.position, splashDmg);
+            // 🔹 자가 피해 확인
+            bool isSelf = Vector3.Distance(c.transform.position, shooterPosition) < 0.1f;
+            float finalDmg = isSelf ? splashDmg * 0.4f : splashDmg;
+            hp.TakeDamage(Mathf.FloorToInt(finalDmg));
 
-                hp.TakeDamage(splashDmg);
-            }
+            // 🔹 넉백 정보 저장
+            var dummy = c.GetComponent<Target>();
+            if (dummy != null)
+                dummy.RecordExplosion(transform.position, splashDmg);
+
         }
 
         Destroy(gameObject);
     }
+
 
     float ComputeDirectDamage(float dist)
     {

@@ -151,18 +151,25 @@ namespace Fragsurf.Movement
             if (Input.GetKeyDown(Noclip))
                 MoveType = MoveType == MoveType.Noclip ? MoveType.Walk : MoveType.Noclip;
         }
-
         private void Tick()
         {
             // 1) 물리 연산에만 시간 배수 적용
             float dt = Time.fixedDeltaTime * timeSkill.TimeMultiplier;
             _controller.CalculateMovement(this, _moveConfig, dt);
 
-            // 2) MoveData.Origin은 바닥(발자리)이므로, 모델 피벗(중앙)을 반 높이만큼 올려준다
+            // 2) 넉백 반영 (외부 힘을 직접 위치에 적용 - 감쇠 포함)
+            MoveData.Origin += _externalVelocity;
+            _externalVelocity *= 0.95f; // 감쇠 적용 (0.85 ~ 0.95 정도 추천)
+
+            // 아주 작아지면 제거
+            if (_externalVelocity.magnitude < 0.01f)
+                _externalVelocity = Vector3.zero;
+
+            // 3) MoveData.Origin은 발 위치 기준이므로, 중앙 기준으로 올려서 실제 위치 설정
             float halfHeight = Collider.size.y * transform.localScale.y * 0.5f;
             transform.position = MoveData.Origin + Vector3.up * halfHeight;
 
-            // 3) 트리거 처리 (기존 로직 그대로)
+            // 4) 트리거 처리
             var prevTouches = new HashSet<GameObject>(_touchingLastFrame);
             var prevOrigin = MoveData.PreviousOrigin;
             var newOrigin = MoveData.Origin;
@@ -202,12 +209,12 @@ namespace Fragsurf.Movement
             MoveData.SideMove = Input.GetKey(MoveLeft) ? -MoveConfig.Accelerate :
                 Input.GetKey(MoveRight) ? MoveConfig.Accelerate : 0f;
             MoveData.ForwardMove = Input.GetKey(MoveForward) ? MoveConfig.Accelerate :
-                Input.GetKey(MoveBack)   ? -MoveConfig.Accelerate : 0f;
+                Input.GetKey(MoveBack) ? -MoveConfig.Accelerate : 0f;
 
             if (Input.GetKey(JumpButton)) MoveData.Buttons |= InputActions.Jump;
-            else                        MoveData.Buttons &= ~InputActions.Jump;
+            else MoveData.Buttons &= ~InputActions.Jump;
             if (Input.GetKey(DuckButton)) MoveData.Buttons |= InputActions.Duck;
-            else                         MoveData.Buttons &= ~InputActions.Duck;
+            else MoveData.Buttons &= ~InputActions.Duck;
 
             MoveData.OldButtons = MoveData.Buttons;
             var angles = Camera.transform.rotation.eulerAngles;
@@ -223,12 +230,19 @@ namespace Fragsurf.Movement
             angles.x = SurfPhysics.ClampAngle(angles.x - my, -89f, 89f);
             angles.y += mx;
 
-            var yaw = Input.GetKey(YawLeft)  ? -YawSpeed :
-                      Input.GetKey(YawRight) ? YawSpeed  : 0;
+            var yaw = Input.GetKey(YawLeft) ? -YawSpeed :
+                      Input.GetKey(YawRight) ? YawSpeed : 0;
             angles.y += yaw * Time.deltaTime;
 
             Camera.transform.rotation = Quaternion.Euler(angles);
             MoveData.ViewAngles = angles;
         }
+        private Vector3 _externalVelocity = Vector3.zero;
+
+        public void AddExternalVelocity(Vector3 velocity)
+        {
+            _externalVelocity += velocity;
+        }
+
     }
 }

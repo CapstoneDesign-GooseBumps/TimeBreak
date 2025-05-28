@@ -1,5 +1,7 @@
 using UnityEngine;
 using System.Collections;
+using Fragsurf.Movement;
+
 public class Rocket : MonoBehaviour
 {
     [Header("Motion")]
@@ -10,7 +12,7 @@ public class Rocket : MonoBehaviour
     public float baseDamage = 90f;
     public float midMinDamage = 50f;
     public float falloffMinDamage = 48f;
-    public float pointBlankRange = 3f;
+    public float pointBlankRange = 5f;
     public float falloffEndDistance = 30f;
 
     [Header("Splash Damage Settings")]
@@ -54,11 +56,8 @@ public class Rocket : MonoBehaviour
     {
         shooterPosition = shooterPos;
         shooterObject = shooterObj;
-
-        // 정확한 Health 컴포넌트 저장
         shooterHealth = shooterObj.GetComponentInChildren<Health>();
 
-        // 발사자와 충돌 무시
         var myCol = GetComponent<Collider>();
         if (myCol != null)
         {
@@ -77,7 +76,6 @@ public class Rocket : MonoBehaviour
         GameObject targetObj = col.collider.transform.root.gameObject;
         bool isSelf = targetObj == shooterObject;
 
-        // 💥 반드시 먼저 설정
         lastDirectHit = col.collider;
 
         var hp = col.collider.GetComponent<Health>();
@@ -137,28 +135,45 @@ public class Rocket : MonoBehaviour
 
             hp.TakeDamage(Mathf.FloorToInt(finalDmg));
 
-            // ✅ 넉백 처리
+            // Knockback
             Vector3 knockbackDir = (c.transform.position - transform.position).normalized;
             float force = splashDmg * knockbackMultiplier;
 
-            // 플레이어에게는 SurfCharacter 방식
-            var surfChar = c.GetComponent<Fragsurf.Movement.SurfCharacter>();
+            var surfChar = c.GetComponent<SurfCharacter>();
             if (surfChar != null)
             {
-                surfChar.AddExternalVelocity(knockbackDir * force);
+                // 부드럽게 나눠서 적용
+                StartCoroutine(ApplyGradualKnockbackWithGravity(surfChar, knockbackDir * force, 0.2f));
+                continue;
             }
 
-            // 연습 타겟에게는 KnockbackTarget 방식
             var knockTarget = c.GetComponent<KnockbackTarget>();
             if (knockTarget != null)
             {
-                Vector3 dir = (c.transform.position - transform.position).normalized;
-                float knockbackForce = splashDmg * knockbackMultiplier;
-                knockTarget.ApplyKnockback(dir * knockbackForce);
+                knockTarget.ApplyKnockback(knockbackDir * force);
             }
         }
 
         Destroy(gameObject);
+    }
+
+    private IEnumerator ApplyGradualKnockback(SurfCharacter surfChar, Vector3 totalForce, float duration)
+    {
+        int steps = Mathf.CeilToInt(duration / Time.fixedDeltaTime);
+        Vector3 stepForce = totalForce / steps;
+
+        for (int i = 0; i < steps; i++)
+        {
+            surfChar.AddExternalVelocity(stepForce);
+            yield return new WaitForFixedUpdate();
+        }
+    }
+
+    private IEnumerator ApplyGradualKnockbackWithGravity(SurfCharacter sc, Vector3 totalForce, float duration)
+    {
+        sc.MoveData.GravityFactor = 0.85f;
+        yield return StartCoroutine(ApplyGradualKnockback(sc, totalForce, duration));
+        sc.MoveData.GravityFactor = 1f;
     }
 
     float ComputeDirectDamage(float dist)

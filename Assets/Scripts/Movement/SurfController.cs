@@ -471,8 +471,7 @@ namespace Fragsurf.Movement
                     _surfer.MoveData.Surfing = true;
                     _surfer.MoveData.SurfNormal = trace.PlaneNormal;
                 }
-                else if (goingAgainstSlope
-                    && dot >= _config.SlideDot)
+                else if (goingAgainstSlope && dot >= _config.SlideDot)
                 {
                     var tempVel = _surfer.MoveData.Velocity;
                     SurfPhysics.ClipVelocity(tempVel, trace.PlaneNormal, ref tempVel, 1.0f);
@@ -510,14 +509,17 @@ namespace Fragsurf.Movement
                 }
                 _surfer.MoveData.GroundTest = 0;
                 SetGround(trace.HitCollider.gameObject, trace.PlaneNormal);
-                _surfer.MoveData.Origin.y = trace.HitPoint.y + HammerScale;
 
-                // slant boost, but only if velocity is away from slope 
+                float desiredY = trace.HitPoint.y + HammerScale;
+                if (_surfer.MoveData.JustGrounded || Mathf.Abs(_surfer.MoveData.Origin.y - desiredY) > 0.01f)
+                {
+                    _surfer.MoveData.Origin.y = desiredY;
+                }
+
                 if (_surfer.MoveData.JustGrounded)
                 {
                     if (!goingAgainstSlope)
                     {
-                        //SurfPhysics.ClipVelocity(_surfer.MoveData.Velocity, trace.PlaneNormal, ref _surfer.MoveData.Velocity, 1.0f);
                         SurfPhysics.Reflect(_surfer, _deltaTime, trace.PlaneNormal);
                     }
                     _surfer.MoveData.Velocity.y = 0;

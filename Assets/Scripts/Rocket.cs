@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 public class Rocket : MonoBehaviour
 {
@@ -27,35 +28,68 @@ public class Rocket : MonoBehaviour
     [Range(0f, 1f)] public float explosionSoundVolume = 1f;
 
     private Vector3 shooterPosition;
-    private Collider directHitCollider;
+    private GameObject shooterObject;
+    private Collider lastDirectHit;
+    private bool ignoreFirstFrame = true;
 
-    public void Initialize(Vector3 shooterPos)
+    void Start()
     {
-        shooterPosition = shooterPos;
+        // 초기 발사 속도 적용 (Translate 대신 물리 기반)
+        var rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.linearVelocity = transform.forward * speed;
+        }
+
+        // 첫 프레임만 충돌 무시
+        StartCoroutine(EnableCollisionNextFrame());
     }
 
-    void Update()
+    IEnumerator EnableCollisionNextFrame()
     {
-        transform.Translate(Vector3.forward * speed * Time.deltaTime, Space.Self);
+        yield return null;
+        ignoreFirstFrame = false;
+    }
+
+    /// <summary>
+    /// 발사자 정보 세팅
+    /// </summary>
+    public void Initialize(Vector3 shooterPos, GameObject shooterObj)
+    {
+        shooterPosition = shooterPos;
+        shooterObject = shooterObj;
+
+        // 발사자의 모든 Collider와 충돌 무시
+        var myCol = GetComponent<Collider>();
+        if (myCol != null)
+        {
+            foreach (var col in shooterObject.GetComponentsInChildren<Collider>())
+            {
+                Physics.IgnoreCollision(myCol, col, true);
+            }
+        }
     }
 
     void OnCollisionEnter(Collision col)
     {
-        directHitCollider = null;
+        // 첫 프레임 딜레이 혹은 발사자 자신과의 충돌은 무시
+        if (ignoreFirstFrame || col.gameObject == shooterObject)
+            return;
 
+        // 직격 피해 처리
         var hp = col.collider.GetComponent<Health>();
         if (hp != null)
         {
             float distShooter = Vector3.Distance(shooterPosition, transform.position);
             float dmg = ComputeDirectDamage(distShooter);
+            Debug.Log($"[Direct] {col.collider.name} took {Mathf.FloorToInt(dmg)} damage");
 
-            // 🔹 넉백 정보를 미리 전달
-            var dummy = col.collider.GetComponent<Target>();
-            if (dummy != null)
-                dummy.RecordExplosion(transform.position, dmg);
+            var tgt = col.collider.GetComponent<Target>();
+            if (tgt != null)
+                tgt.RecordExplosion(transform.position, dmg);
 
             hp.TakeDamage(dmg);
-            directHitCollider = col.collider;
+            lastDirectHit = col.collider;
         }
 
         Explode();
@@ -63,39 +97,38 @@ public class Rocket : MonoBehaviour
 
     void Explode()
     {
+        // 이펙트
         if (explosionParticlePrefab != null)
             Instantiate(explosionParticlePrefab, transform.position, Quaternion.identity);
-
         if (explosionSoundClip != null)
             AudioSource.PlayClipAtPoint(explosionSoundClip, transform.position, explosionSoundVolume);
 
-        Collider[] hits = Physics.OverlapSphere(transform.position, explosionRadius);
+        // 스플래시 피해
+        var hits = Physics.OverlapSphere(transform.position, explosionRadius);
         foreach (var c in hits)
         {
-            if (c == null) continue;
+            // 발사자 콜라이더 전체, 그리고 직격 대상은 제외
+            if (c == null || c.gameObject == shooterObject || c == lastDirectHit)
+                continue;
+
             var hp = c.GetComponent<Health>();
-            if (hp == null) continue;
+            if (hp != null)
+            {
+                float distExpl = Vector3.Distance(transform.position, c.transform.position);
+                float directDmg = ComputeDirectDamage(Vector3.Distance(shooterPosition, transform.position));
+                float splashDmg = ComputeSplashDamage(directDmg, distExpl);
+                Debug.Log($"[Splash] {c.name} took {Mathf.FloorToInt(splashDmg)} damage");
 
-            float distShooter = Vector3.Distance(shooterPosition, transform.position);
-            float directDmg = ComputeDirectDamage(distShooter);
-            float distExpl = Vector3.Distance(transform.position, c.transform.position);
-            float splashDmg = ComputeSplashDamage(directDmg, distExpl);
+                var tgt = c.GetComponent<Target>();
+                if (tgt != null)
+                    tgt.RecordExplosion(transform.position, splashDmg);
 
-            // 🔹 자가 피해 확인
-            bool isSelf = Vector3.Distance(c.transform.position, shooterPosition) < 0.1f;
-            float finalDmg = isSelf ? splashDmg * 0.4f : splashDmg;
-            hp.TakeDamage(Mathf.FloorToInt(finalDmg));
-
-            // 🔹 넉백 정보 저장
-            var dummy = c.GetComponent<Target>();
-            if (dummy != null)
-                dummy.RecordExplosion(transform.position, splashDmg);
-
+                hp.TakeDamage(Mathf.FloorToInt(splashDmg));
+            }
         }
 
         Destroy(gameObject);
     }
-
 
     float ComputeDirectDamage(float dist)
     {

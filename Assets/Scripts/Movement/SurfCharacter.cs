@@ -28,8 +28,6 @@ namespace Fragsurf.Movement
         public KeyCode MoveForward = KeyCode.W;
         public KeyCode MoveBack = KeyCode.S;
         public KeyCode Noclip = KeyCode.N;
-
-        //public KeyCode Restart = KeyCode.T;
         public KeyCode YawLeft = KeyCode.Mouse4;
         public KeyCode YawRight = KeyCode.Mouse3;
         public int YawSpeed = 260;
@@ -66,6 +64,8 @@ namespace Fragsurf.Movement
         public Vector3 Up => transform.up;
         public Vector3 StandingExtents => ColliderSize * 0.5f;
 
+        private Vector3 _externalVelocity = Vector3.zero;
+
         private void OnDestroy()
         {
             Cursor.visible = true;
@@ -79,12 +79,13 @@ namespace Fragsurf.Movement
             Camera.fieldOfView = FieldOfView;
             Camera.transform.SetParent(null);
 
-            foreach (var col in GetComponentsInChildren<Collider>()) Destroy(col);
+            foreach (var col in GetComponentsInChildren<Collider>())
+                Destroy(col);
 
             Collider = gameObject.AddComponent<BoxCollider>();
             Collider.size = ColliderSize;
-            Collider.center = new Vector3(0, 0, 0);
-            Collider.isTrigger = true;
+            Collider.center = new Vector3(0, ColliderSize.y * 0.5f, 0);
+            Collider.isTrigger = false;
 
             var rb = GetComponent<Rigidbody>() ?? gameObject.AddComponent<Rigidbody>();
             rb.isKinematic = true;
@@ -126,90 +127,33 @@ namespace Fragsurf.Movement
                 _accumulator -= Time.fixedDeltaTime;
                 Tick();
             }
-            _alpha = _accumulator / Time.fixedDeltaTime;
 
-            // 3) 카메라 보간 – 시간 배수 적용 안 함
-            if (Camera)
-            {
-                float halfHeight = Collider.size.y * transform.localScale.y * 0.5f;
-                Vector3 interp = Vector3.Lerp(MoveData.PreviousOrigin, MoveData.Origin, _alpha);
-                Camera.transform.position = interp
-                                        + Vector3.up * halfHeight
-                                        + (MoveData.Ducked ? DuckedViewOffset : ViewOffset);
-            }
+            _alpha = _accumulator / Time.fixedDeltaTime;
         }
 
         private void UpdateTestBinds()
         {
-            /*
-            if (Input.GetKeyDown(Restart))
-            {
-                MoveData.Velocity = Vector3.zero;
-                MoveData.Origin = _startPosition;
-            }
-            */
             if (Input.GetKeyDown(Noclip))
                 MoveType = MoveType == MoveType.Noclip ? MoveType.Walk : MoveType.Noclip;
         }
+
         private void Tick()
         {
-            // 1) 물리 연산에만 시간 배수 적용
             float dt = Time.fixedDeltaTime * timeSkill.TimeMultiplier;
             _controller.CalculateMovement(this, _moveConfig, dt);
 
-            // 2) 넉백 반영 (외부 힘을 직접 위치에 적용 - 감쇠 포함)
             MoveData.Origin += _externalVelocity;
-            _externalVelocity *= 0.95f; // 감쇠 적용 (0.85 ~ 0.95 정도 추천)
-
-            // 아주 작아지면 제거
+            _externalVelocity *= 0.95f;
             if (_externalVelocity.magnitude < 0.01f)
                 _externalVelocity = Vector3.zero;
-
-            // 3) MoveData.Origin은 발 위치 기준이므로, 중앙 기준으로 올려서 실제 위치 설정
-            float halfHeight = Collider.size.y * transform.localScale.y * 0.5f;
-            transform.position = MoveData.Origin + Vector3.up * halfHeight;
-
-            // 4) 트리거 처리
-            var prevTouches = new HashSet<GameObject>(_touchingLastFrame);
-            var prevOrigin = MoveData.PreviousOrigin;
-            var newOrigin = MoveData.Origin;
-            var center = prevOrigin + Vector3.up * Collider.bounds.extents.y;
-            var dir = (newOrigin - prevOrigin).normalized;
-            var distance = Vector3.Distance(prevOrigin, newOrigin);
-
-            var hits = Physics.BoxCastAll(
-                center,
-                Collider.bounds.extents,
-                dir,
-                Quaternion.identity,
-                distance,
-                SurfPhysics.GroundLayerMask,
-                QueryTriggerInteraction.Collide
-            );
-
-            var currentTouches = hits
-                .Where(h => h.collider.isTrigger)
-                .Select(h => h.collider.gameObject)
-                .Distinct()
-                .ToList();
-
-            var newList = currentTouches.Except(prevTouches).ToList();
-            var stayList = currentTouches.Intersect(prevTouches).ToList();
-            var exitList = prevTouches.Except(currentTouches).ToList();
-
-            foreach (var go in newList)  OnTriggerEnterEvent?.Invoke(go);
-            foreach (var go in stayList) OnTriggerStayEvent?.Invoke(go);
-            foreach (var go in exitList)  OnTriggerExitEvent?.Invoke(go);
-
-            _touchingLastFrame = currentTouches;
         }
 
         private void UpdateMoveData()
         {
             MoveData.SideMove = Input.GetKey(MoveLeft) ? -MoveConfig.Accelerate :
-                Input.GetKey(MoveRight) ? MoveConfig.Accelerate : 0f;
+                                Input.GetKey(MoveRight) ? MoveConfig.Accelerate : 0f;
             MoveData.ForwardMove = Input.GetKey(MoveForward) ? MoveConfig.Accelerate :
-                Input.GetKey(MoveBack) ? -MoveConfig.Accelerate : 0f;
+                                  Input.GetKey(MoveBack) ? -MoveConfig.Accelerate : 0f;
 
             if (Input.GetKey(JumpButton)) MoveData.Buttons |= InputActions.Jump;
             else MoveData.Buttons &= ~InputActions.Jump;
@@ -234,15 +178,28 @@ namespace Fragsurf.Movement
                       Input.GetKey(YawRight) ? YawSpeed : 0;
             angles.y += yaw * Time.deltaTime;
 
-            Camera.transform.rotation = Quaternion.Euler(angles);
             MoveData.ViewAngles = angles;
+
+            if (Camera != null)
+                Camera.transform.rotation = Quaternion.Euler(angles);
         }
-        private Vector3 _externalVelocity = Vector3.zero;
+
+        private void LateUpdate()
+        {
+            Vector3 interp = Vector3.Lerp(MoveData.PreviousOrigin, MoveData.Origin, _alpha);
+            float halfHeight = Collider.size.y * transform.localScale.y * 0.5f;
+            transform.position = interp + Vector3.up * halfHeight;
+
+            if (Camera)
+            {
+                Camera.transform.position = transform.position + (MoveData.Ducked ? DuckedViewOffset : ViewOffset);
+                Camera.transform.rotation = Quaternion.Euler(MoveData.ViewAngles);
+            }
+        }
 
         public void AddExternalVelocity(Vector3 velocity)
         {
             _externalVelocity += velocity;
         }
-
     }
 }

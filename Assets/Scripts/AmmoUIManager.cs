@@ -5,8 +5,8 @@ public class AmmoUIManager : MonoBehaviour
 {
     public TextMeshProUGUI ammoText;
 
-    public void UpdateAmmo(int current, int max)
+    public void UpdateAmmo(int magazine, int reserve)
     {
-        ammoText.text = $"{current} / {max}";
+        ammoText.text = $"{magazine} / {reserve}";
     }
 }

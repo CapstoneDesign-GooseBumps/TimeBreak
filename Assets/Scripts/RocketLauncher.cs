@@ -6,11 +6,11 @@ public class RocketLauncher : MonoBehaviour
     [Header("References")]
     public GameObject rocketPrefab;
     public Transform firePoint;
+    public AmmoUIManager uiManager; // 🔹 UI 연결
 
     [Header("Ammo Settings")]
-    public int magazineCapacity = 4;
-    public int reserveAmmo = 20;
-
+    [SerializeField] private int magazineCapacity = 4;
+    [SerializeField] private int reserveAmmo = 20;
     [SerializeField] private int currentMagazine;
     [SerializeField] private int currentAmmo;
 
@@ -30,6 +30,7 @@ public class RocketLauncher : MonoBehaviour
     {
         currentMagazine = magazineCapacity;
         currentAmmo = reserveAmmo;
+        UpdateAmmoUI(); // 🔸 시작 시 UI 초기화
     }
 
     void Update()
@@ -46,9 +47,8 @@ public class RocketLauncher : MonoBehaviour
 
     void TryStartReload()
     {
-        if (isReloading) return;
-        if (currentMagazine >= magazineCapacity) return;
-        if (currentAmmo <= 0) return;
+        if (isReloading || currentMagazine >= magazineCapacity || currentAmmo <= 0)
+            return;
 
         StartCoroutine(ReloadMagazine());
     }
@@ -57,18 +57,15 @@ public class RocketLauncher : MonoBehaviour
     {
         isInFireDelay = true;
 
-        // 발사 위치를 몸체에서 0.6m 전방으로 오프셋
         Vector3 spawnPos = firePoint.position + firePoint.forward * 0.6f;
         GameObject rocketObj = Instantiate(rocketPrefab, spawnPos, firePoint.rotation);
 
-        // 초기화: 위치 + 플레이어 게임오브젝트
         var rocket = rocketObj.GetComponent<Rocket>();
         if (rocket != null)
-        {
-            rocket.Initialize(transform.position, gameObject);
-        }
+            rocket.Initialize(transform.position, transform.root.gameObject);
 
         currentMagazine--;
+        UpdateAmmoUI(); // 🔸 탄약 감소 시 UI 반영
 
         if (audioSource && fireClip)
             audioSource.PlayOneShot(fireClip);
@@ -93,8 +90,10 @@ public class RocketLauncher : MonoBehaviour
         {
             yield return new WaitForSeconds(delay);
 
-            currentMagazine = Mathf.Min(currentMagazine + 1, magazineCapacity);
+            currentMagazine++;
             currentAmmo--;
+
+            UpdateAmmoUI(); // 🔸 장전 시 UI 반영
 
             if (audioSource && reloadClip)
                 audioSource.PlayOneShot(reloadClip);
@@ -103,5 +102,13 @@ public class RocketLauncher : MonoBehaviour
         }
 
         isReloading = false;
+    }
+
+    void UpdateAmmoUI()
+    {
+        if (uiManager != null)
+        {
+            uiManager.UpdateAmmo(currentMagazine, currentAmmo); // 💡 직접 전달
+        }
     }
 }

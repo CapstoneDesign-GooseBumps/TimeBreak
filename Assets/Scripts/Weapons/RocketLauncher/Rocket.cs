@@ -103,57 +103,59 @@ public class Rocket : MonoBehaviour
 
     void Explode()
     {
+        // 1) 파티클 생성 & 자동 삭제
         if (explosionParticlePrefab != null)
-            Instantiate(explosionParticlePrefab, transform.position, Quaternion.identity);
+        {
+            var effect = Instantiate(explosionParticlePrefab, transform.position, Quaternion.identity);
 
+            var psList = effect.GetComponentsInChildren<ParticleSystem>();
+            float maxDuration = 0f;
+            foreach (var ps in psList)
+            {
+                var main = ps.main;
+                float dur = main.duration + main.startLifetime.constantMax;
+                if (dur > maxDuration) maxDuration = dur;
+            }
+            Destroy(effect, maxDuration);
+        }
+
+        // 2) 사운드
         if (explosionSoundClip != null)
             AudioSource.PlayClipAtPoint(explosionSoundClip, transform.position, explosionSoundVolume);
 
+        // 3) 데미지 & 넉백 처리
         Collider[] hits = Physics.OverlapSphere(transform.position, explosionRadius);
         foreach (var c in hits)
         {
-            if (c == null || c == lastDirectHit)
-                continue;
+            if (c == null || c == lastDirectHit) continue;
 
             var hp = c.GetComponent<Health>();
-            if (hp == null)
-                continue;
+            if (hp == null) continue;
 
             bool isSelf = (hp == shooterHealth);
-
             float distShooter = Vector3.Distance(shooterPosition, transform.position);
             float directDmg = ComputeDirectDamage(distShooter);
             float distExpl = Vector3.Distance(transform.position, c.transform.position);
             float splashDmg = ComputeSplashDamage(directDmg, distExpl);
             float finalDmg = isSelf ? splashDmg * 0.4f : splashDmg;
 
-            Debug.Log($"[Splash{(isSelf ? " Self" : "")}] {c.name} took {Mathf.FloorToInt(finalDmg)} damage");
-
-            var tgt = c.GetComponent<Target>();
-            if (tgt != null)
-                tgt.RecordExplosion(transform.position, splashDmg);
-
             hp.TakeDamage(Mathf.FloorToInt(finalDmg));
 
-            // Knockback
-            Vector3 knockbackDir = (c.transform.position - transform.position).normalized;
+            // 넉백
+            Vector3 kbDir = (c.transform.position - transform.position).normalized;
             float force = splashDmg * knockbackMultiplier;
-
             var surfChar = c.GetComponent<SurfCharacter>();
             if (surfChar != null)
             {
-                // 부드럽게 나눠서 적용
-                StartCoroutine(ApplyGradualKnockbackWithGravity(surfChar, knockbackDir * force, 0.2f));
+                StartCoroutine(ApplyGradualKnockbackWithGravity(surfChar, kbDir * force, 0.2f));
                 continue;
             }
-
             var knockTarget = c.GetComponent<KnockbackTarget>();
             if (knockTarget != null)
-            {
-                knockTarget.ApplyKnockback(knockbackDir * force);
-            }
+                knockTarget.ApplyKnockback(kbDir * force);
         }
 
+        // 4) 로켓 오브젝트 정리
         Destroy(gameObject);
     }
 

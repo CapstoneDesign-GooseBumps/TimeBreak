@@ -65,17 +65,33 @@ public class Grenade : MonoBehaviour
         if (exploded) return;
         exploded = true;
 
+        // 1) 파티클 생성 & 자동 삭제
         if (explosionEffect != null)
-            Instantiate(explosionEffect, transform.position, Quaternion.identity);
+        {
+            var effect = Instantiate(explosionEffect, transform.position, Quaternion.identity);
 
+            // 자식 포함 모든 파티클 시스템의 최대 재생 시간 계산
+            var psList = effect.GetComponentsInChildren<ParticleSystem>();
+            float maxDuration = 0f;
+            foreach (var ps in psList)
+            {
+                var main = ps.main;
+                float dur = main.duration + main.startLifetime.constantMax;
+                if (dur > maxDuration) maxDuration = dur;
+            }
+            // 재생 종료 후 오브젝트 정리
+            Destroy(effect, maxDuration);
+        }
+
+        // 2) 사운드
         if (explosionSound != null)
             AudioSource.PlayClipAtPoint(explosionSound, transform.position, explosionVolume);
 
+        // 3) 데미지 처리
         Collider[] hits = Physics.OverlapSphere(transform.position, explosionRadius);
         foreach (var c in hits)
         {
-            if (c == null || c == lastDirectHit)
-                continue;
+            if (c == null || c == lastDirectHit) continue;
 
             var hp = c.GetComponent<Health>();
             if (hp != null)
@@ -83,14 +99,14 @@ public class Grenade : MonoBehaviour
                 float dist = Vector3.Distance(transform.position, c.transform.position);
                 float t = Mathf.Clamp01(dist / explosionRadius);
                 float dmg = Mathf.Lerp(splashMaxDamage, splashMinDamage, t);
-
-                Debug.Log($"[Grenade Splash] {c.name} took {dmg} damage");
                 hp.TakeDamage(Mathf.FloorToInt(dmg));
             }
         }
 
+        // 4) 파편(수류탄) 오브젝트 제거
         Destroy(gameObject);
     }
+
 
 #if UNITY_EDITOR
     void OnDrawGizmosSelected()

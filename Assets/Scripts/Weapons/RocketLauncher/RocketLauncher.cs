@@ -27,6 +27,7 @@ public class RocketLauncher : MonoBehaviour
     public AudioSource audioSource;
     public AudioClip fireClip;
     public AudioClip reloadClip;
+    public AudioClip deployClip;
 
     void Start()
     {
@@ -47,6 +48,11 @@ public class RocketLauncher : MonoBehaviour
         }
     }
 
+    void OnEnable()
+    {
+        if (audioSource && deployClip)
+            audioSource.PlayOneShot(deployClip);
+    }
     void TryStartReload()
     {
         if (isReloading || currentMagazine >= magazineCapacity || currentAmmo <= 0)

@@ -28,7 +28,10 @@ public class GrenadeLauncher : MonoBehaviour
     [Header("Audio")]
     public AudioSource audioSource;
     public AudioClip fireClip;
-    public AudioClip reloadClip;
+    public AudioClip reloadInsertClip;
+    public AudioClip reloadOpenClip;
+    public AudioClip reloadCloseClip;
+    public AudioClip deployClip;
 
     void Start()
     {
@@ -48,6 +51,13 @@ public class GrenadeLauncher : MonoBehaviour
             TryStartReload();
         }
     }
+
+    void OnEnable()
+    {
+        if (audioSource && deployClip)
+            audioSource.PlayOneShot(deployClip);
+    }
+
 
     void TryStartReload()
     {
@@ -93,22 +103,28 @@ public class GrenadeLauncher : MonoBehaviour
     IEnumerator ReloadMagazine()
     {
         isReloading = true;
-        float delay = firstReloadTime;
         bool isFirstShell = true;
+
+        // 실린더 오픈
+        if (audioSource && reloadOpenClip)
+            audioSource.PlayOneShot(reloadOpenClip);
+
+        yield return new WaitForSeconds(0.4f); // 오픈음 길이에 맞게 조정
 
         while (currentMagazine < magazineCapacity && currentAmmo > 0)
         {
+            float delay = isFirstShell ? firstReloadTime : regularReloadTime;
             yield return new WaitForSeconds(delay);
 
             if (currentMagazine >= magazineCapacity || currentAmmo <= 0)
                 break;
 
+            if (audioSource && reloadInsertClip)
+                audioSource.PlayOneShot(reloadInsertClip);
+
             currentMagazine++;
             currentAmmo--;
             UpdateAmmoUI();
-
-            if (audioSource && reloadClip)
-                audioSource.PlayOneShot(reloadClip);
 
             if (isFirstShell)
             {
@@ -119,14 +135,15 @@ public class GrenadeLauncher : MonoBehaviour
             {
                 Debug.Log("[Grenade] 차탄 장전됨");
             }
-
-            delay = regularReloadTime;
         }
+
+        // 실린더 클로즈
+        if (audioSource && reloadCloseClip)
+            audioSource.PlayOneShot(reloadCloseClip);
 
         isReloading = false;
         reloadCoroutine = null;
     }
-
 
     void OnDisable()
     {

@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class HideOwnBody : MonoBehaviour
 {
-    public bool isLocalPlayer; // 당신의 네트워크 시스템에 따라 이 값은 다르게 설정합니다
+    public bool isLocalPlayer; // 네트워크 플레이어 여부 (예: Mirror, Photon 등과 연동 가능)
 
     void Start()
     {
@@ -10,6 +10,10 @@ public class HideOwnBody : MonoBehaviour
         {
             foreach (var renderer in GetComponentsInChildren<Renderer>())
             {
+                // "Weapon" 태그가 붙은 오브젝트는 숨기지 않음
+                if (renderer.CompareTag("Weapon"))
+                    continue;
+
                 renderer.enabled = false;
             }
         }

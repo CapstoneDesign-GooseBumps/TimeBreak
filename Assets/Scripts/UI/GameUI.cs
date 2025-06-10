@@ -59,6 +59,9 @@ public class GameUI : MonoBehaviour
 
             GUI.Label(new Rect(screenWidth / 2f - 150, screenHeight / 2f - 30, 300, 60), GameManager.winnerText, winStyle);
         }
+
+        // 크로스헤어
+        DrawCrosshair();
     }
 
     void DrawLives(float screenWidth, float top)
@@ -81,5 +84,30 @@ public class GameUI : MonoBehaviour
             GUI.color = Color.green;
             GUI.Box(new Rect(x, top, boxSize, boxSize), GUIContent.none);
         }
+    }
+
+    void DrawCrosshair()
+    {
+        float centerX = Screen.width / 2f;
+        float centerY = Screen.height / 2f;
+        float length = 10f;
+        float thickness = 2f;
+        float outline = 1f;
+
+        // 아웃라인 (검정색)
+        GUI.color = Color.black;
+
+        // 수직 아웃라인
+        GUI.DrawTexture(new Rect(centerX - thickness / 2 - outline, centerY - length - outline, thickness + outline * 2, length * 2 + outline * 2), Texture2D.whiteTexture);
+        // 수평 아웃라인
+        GUI.DrawTexture(new Rect(centerX - length - outline, centerY - thickness / 2 - outline, length * 2 + outline * 2, thickness + outline * 2), Texture2D.whiteTexture);
+
+        // 본체 (초록색)
+        GUI.color = Color.green;
+
+        // 수직선
+        GUI.DrawTexture(new Rect(centerX - thickness / 2, centerY - length, thickness, length * 2), Texture2D.whiteTexture);
+        // 수평선
+        GUI.DrawTexture(new Rect(centerX - length, centerY - thickness / 2, length * 2, thickness), Texture2D.whiteTexture);
     }
 }

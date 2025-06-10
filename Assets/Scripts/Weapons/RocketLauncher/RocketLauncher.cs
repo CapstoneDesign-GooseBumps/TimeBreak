@@ -96,7 +96,6 @@ public class RocketLauncher : MonoBehaviour
     {
         isInFireDelay = true;
 
-        // 🔸 장전 중이면 중단
         if (reloadCoroutine != null)
         {
             StopCoroutine(reloadCoroutine);
@@ -104,13 +103,17 @@ public class RocketLauncher : MonoBehaviour
             isReloading = false;
         }
 
-        // 🔸 발사
-        Vector3 spawnPos = firePoint.position + firePoint.forward * 0.6f;
-        GameObject rocketObj = Instantiate(rocketPrefab, spawnPos, firePoint.rotation);
+        // 화면 중앙을 향하는 방향 계산
+        Ray ray = Camera.main.ScreenPointToRay(new Vector2(Screen.width / 2f, Screen.height / 2f));
+        Vector3 direction = ray.direction.normalized;
+
+        // 발사체 생성
+        Vector3 spawnPos = firePoint.position;
+        GameObject rocketObj = Instantiate(rocketPrefab, spawnPos, Quaternion.LookRotation(direction));
 
         var rocket = rocketObj.GetComponent<Rocket>();
         if (rocket != null)
-            rocket.Initialize(transform.position, transform.root.gameObject);
+            rocket.Initialize(spawnPos, transform.root.gameObject);
 
         currentMagazine--;
         UpdateAmmoUI();

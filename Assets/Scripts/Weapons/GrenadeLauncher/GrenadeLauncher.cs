@@ -100,7 +100,6 @@ public class GrenadeLauncher : MonoBehaviour
     {
         isInFireDelay = true;
 
-        // 🔸 장전 중이면 중단
         if (reloadCoroutine != null)
         {
             StopCoroutine(reloadCoroutine);
@@ -108,12 +107,17 @@ public class GrenadeLauncher : MonoBehaviour
             isReloading = false;
         }
 
-        // 🔸 발사
-        Vector3 spawnPos = firePoint.position + firePoint.forward * 0.5f;
+        // 화면 중앙을 향하는 방향 계산
+        Ray ray = Camera.main.ScreenPointToRay(new Vector2(Screen.width / 2f, Screen.height / 2f));
+        Vector3 direction = ray.direction.normalized;
+
+        // 발사체 생성
+        Vector3 spawnPos = firePoint.position;
         GameObject grenadeObj = Instantiate(grenadePrefab, spawnPos, Quaternion.identity);
+
         Rigidbody rb = grenadeObj.GetComponent<Rigidbody>();
         if (rb != null)
-            rb.linearVelocity = firePoint.forward * fireForce;
+            rb.linearVelocity = direction * fireForce;
 
         var grenade = grenadeObj.GetComponent<Grenade>();
         if (grenade != null)

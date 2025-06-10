@@ -9,4 +9,7 @@ public class AmmoUIManager : MonoBehaviour
     {
         ammoText.text = $"{magazine} / {reserve}";
     }
+
+    public void Show() => gameObject.SetActive(true);
+    public void Hide() => gameObject.SetActive(false);
 }

@@ -1,3 +1,4 @@
+// Health.cs 수정
 using UnityEngine;
 using UnityEngine.Events;
 
@@ -5,12 +6,12 @@ using UnityEngine.Events;
 public class Health : MonoBehaviour
 {
     [Header("Health Settings")]
-    public float maxHealth = 100f;            // 최대 체력
+    public float maxHealth = 300f;            
     [SerializeField] private float currentHealth;
 
     [Header("Events")]
-    public UnityEvent<float> OnTakeDamage;    // 파라미터: 남은 체력
-    public UnityEvent<float> OnHeal;          // 파라미터: 남은 체력
+    public UnityEvent<float> OnTakeDamage;    
+    public UnityEvent<float> OnHeal;          
     public UnityEvent OnDie;
 
     void Awake()
@@ -18,9 +19,6 @@ public class Health : MonoBehaviour
         currentHealth = maxHealth;
     }
 
-    /// <summary>
-    /// 외부에서 데미지를 줄 때 호출합니다.
-    /// </summary>
     public void TakeDamage(float amount)
     {
         if (currentHealth <= 0f) return;
@@ -34,9 +32,6 @@ public class Health : MonoBehaviour
             Die();
     }
 
-    /// <summary>
-    /// 체력을 회복할 때 호출합니다.
-    /// </summary>
     public void Heal(float amount)
     {
         if (currentHealth <= 0f) return;
@@ -50,15 +45,18 @@ public class Health : MonoBehaviour
     void Die()
     {
         OnDie?.Invoke();
-        // 기본 사망 처리: 오브젝트 비활성화
         gameObject.SetActive(false);
-
-        // 필요 시 여기에 리스폰, 애니메이션, 사운드 등을 추가하세요.
     }
 
     /// <summary>
-    /// 외부에서 현재 체력을 조회할 수 있게 합니다.
+    /// 리스폰 시 체력을 완전히 회복시키고 OnHeal 이벤트를 발생시킵니다.
     /// </summary>
+    public void ResetHealth()
+    {
+        currentHealth = maxHealth;
+        OnHeal?.Invoke(currentHealth);
+    }
+
     public float GetCurrentHealth()
     {
         return currentHealth;

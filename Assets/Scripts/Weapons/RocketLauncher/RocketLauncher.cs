@@ -29,6 +29,9 @@ public class RocketLauncher : MonoBehaviour
     public AudioClip reloadClip;
     public AudioClip deployClip;
 
+    [Header("Weapon UI")]
+    public GameObject rocketImage; // RocketImage 오브젝트 참조
+
     void Start()
     {
         currentMagazine = magazineCapacity;
@@ -47,12 +50,40 @@ public class RocketLauncher : MonoBehaviour
             TryStartReload();
         }
     }
-
+    
     void OnEnable()
     {
         if (audioSource && deployClip)
             audioSource.PlayOneShot(deployClip);
+
+        if (uiManager != null)
+        {
+            uiManager.Show();
+            uiManager.UpdateAmmo(currentMagazine, currentAmmo);
+        }
+
+        if (rocketImage != null)
+            rocketImage.SetActive(true); // 🔹 이미지 표시
     }
+
+    void OnDisable()
+    {
+        if (reloadCoroutine != null)
+        {
+            StopCoroutine(reloadCoroutine);
+            reloadCoroutine = null;
+        }
+
+        isReloading = false;
+        isInFireDelay = false;
+
+        if (uiManager != null)
+            uiManager.Hide();
+
+        if (rocketImage != null)
+            rocketImage.SetActive(false); // 🔹 이미지 숨김
+    }
+
     void TryStartReload()
     {
         if (isReloading || currentMagazine >= magazineCapacity || currentAmmo <= 0)
@@ -128,21 +159,17 @@ public class RocketLauncher : MonoBehaviour
         reloadCoroutine = null;
     }
 
-
-    void OnDisable()
-    {
-        if (reloadCoroutine != null)
-        {
-            StopCoroutine(reloadCoroutine);
-            reloadCoroutine = null;
-        }
-        isReloading = false;
-        isInFireDelay = false;
-    }
-
     void UpdateAmmoUI()
     {
         if (uiManager != null)
             uiManager.UpdateAmmo(currentMagazine, currentAmmo);
     }
+
+    public void ResetAmmo()
+    {
+        currentMagazine = magazineCapacity;
+        currentAmmo = reserveAmmo;
+        UpdateAmmoUI();
+    }
+
 }

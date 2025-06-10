@@ -33,6 +33,9 @@ public class GrenadeLauncher : MonoBehaviour
     public AudioClip reloadCloseClip;
     public AudioClip deployClip;
 
+    [Header("Weapon UI")]
+    public GameObject grenadeImage; // GrenadeImage 오브젝트 참조
+
     void Start()
     {
         currentMagazine = magazineCapacity;
@@ -56,8 +59,34 @@ public class GrenadeLauncher : MonoBehaviour
     {
         if (audioSource && deployClip)
             audioSource.PlayOneShot(deployClip);
+
+        if (uiManager != null)
+        {
+            uiManager.Show();
+            uiManager.UpdateAmmo(currentMagazine, currentAmmo);
+        }
+
+        if (grenadeImage != null)
+            grenadeImage.SetActive(true); // 🔹 이미지 표시
     }
 
+    void OnDisable()
+    {
+        if (reloadCoroutine != null)
+        {
+            StopCoroutine(reloadCoroutine);
+            reloadCoroutine = null;
+        }
+
+        isReloading = false;
+        isInFireDelay = false;
+
+        if (uiManager != null)
+            uiManager.Hide();
+
+        if (grenadeImage != null)
+            grenadeImage.SetActive(false); // 🔹 이미지 숨김
+    }
 
     void TryStartReload()
     {
@@ -145,20 +174,17 @@ public class GrenadeLauncher : MonoBehaviour
         reloadCoroutine = null;
     }
 
-    void OnDisable()
-    {
-        if (reloadCoroutine != null)
-        {
-            StopCoroutine(reloadCoroutine);
-            reloadCoroutine = null;
-        }
-        isReloading = false;
-        isInFireDelay = false;
-    }
-
     void UpdateAmmoUI()
     {
         if (uiManager != null)
             uiManager.UpdateAmmo(currentMagazine, currentAmmo);
     }
+
+    public void ResetAmmo()
+    {
+        currentMagazine = magazineCapacity;
+        currentAmmo = reserveAmmo;
+        UpdateAmmoUI();
+    }
+
 }
